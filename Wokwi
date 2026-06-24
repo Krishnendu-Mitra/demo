@@ -1,0 +1,177 @@
+#define BLYNK_TEMPLATE_ID "TMPL3aQG4l44k"
+#define BLYNK_TEMPLATE_NAME "DHT22"
+#define BLYNK_AUTH_TOKEN "1jfE2Dsahemtthqeja_7bygMwhWFQk5x"
+
+#include <Arduino.h> // Required for VS Code
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+#include <LiquidCrystal.h>
+#include "DHT.h"
+
+// WiFi Credentials for Wokwi
+char auth[] = BLYNK_AUTH_TOKEN;
+char ssid[] = "Wokwi-GUEST";
+char pass[] = "";
+
+// Hardware Pins
+#define DHTPIN 13
+#define DHTTYPE DHT22
+#define LED_PIN 25
+
+// Initialize LCD (RS, E, D4, D5, D6, D7)
+LiquidCrystal lcd(21, 19, 18, 5, 4, 2);
+DHT dht(DHTPIN, DHTTYPE);
+BlynkTimer timer;
+
+// Global variables to store readings
+float h, t;
+
+// Function to read sensor and send to Blynk
+void myTimerEvent() {
+  h = dht.readHumidity();
+  t = dht.readTemperature();
+
+  if (isnan(h) || isnan(t)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+  }
+
+  // 1. Send data to Blynk App
+  Blynk.virtualWrite(V0, h); // V0 for Humidity
+  Blynk.virtualWrite(V1, t); // V1 for Temperature
+
+  // 2. Logic: If temp >= 50, turn on LED on Pin 25
+  if (t >= 50.00) {
+    digitalWrite(LED_PIN, HIGH);
+  } else {
+    digitalWrite(LED_PIN, LOW);
+  }
+
+  // 3. Update Serial Monitor
+  Serial.print(F("Humidity: "));
+  Serial.print(h);
+  Serial.print(F("%  Temperature: "));
+  Serial.print(t);
+  Serial.println(F("°C"));
+
+  // 4. Update LCD Screen
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Humid: ");
+  lcd.print(h, 1);
+  lcd.print("%");
+  
+  lcd.setCursor(0, 1);
+  lcd.print("Temp:  ");
+  lcd.print(t, 1);
+  lcd.print("C");
+}
+
+void setup() {
+  Serial.begin(115200);
+  
+  // Set LED pin
+  pinMode(LED_PIN, OUTPUT);
+
+  // Initialize LCD and Sensor
+  lcd.begin(16, 2);
+  dht.begin();
+
+  // Connect to Blynk
+  Blynk.begin(auth, ssid, pass);
+
+  // Setup timer to run every 2 seconds
+  timer.setInterval(2000L, myTimerEvent);
+}
+
+void loop() {
+  Blynk.run();
+  timer.run(); // All the sensor work is done inside myTimerEvent via this timer
+}
+
+
+
+
+
+
+
+
+
+
+
+{
+  "version": 1,
+  "author": "Anonymous maker",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": -2.29, "left": 71.16, "attrs": {} },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 143.38,
+      "left": -225.82,
+      "attrs": { "value": "330" }
+    },
+    { "type": "wokwi-lcd1602", "id": "lcd1", "top": -225.26, "left": 160.26, "attrs": {} },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -66.49,
+      "left": -304.39,
+      "attrs": { "temperature": "76", "humidity": "37" }
+    },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": -94.87, "left": -185.8, "attrs": {} },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 262.22,
+      "left": 107.45,
+      "attrs": { "value": "330" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -221.97,
+      "left": -13.23,
+      "attrs": { "color": "red" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r3",
+      "top": -80.34,
+      "left": -54.38,
+      "rotate": 90,
+      "attrs": { "value": "1000" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "dht1:VCC", "r1:2", "red", [ "v113.28", "h1.87" ] ],
+    [ "dht1:SDA", "r1:1", "green", [ "v0" ] ],
+    [ "esp:D13", "dht1:SDA", "green", [ "h-234.89", "v-12.05", "h1.39" ] ],
+    [ "dht1:GND", "esp:GND.2", "black", [ "v0" ] ],
+    [ "esp:3V3", "dht1:VCC", "green", [ "v2.21", "h65.84", "v92.85", "h-400.49" ] ],
+    [ "lcd1:A", "esp:VIN", "green", [ "v258.4", "h-206.26", "v-12.47" ] ],
+    [ "pot1:VCC", "esp:VIN", "red", [ "v141.08", "h46.52" ] ],
+    [ "r2:2", "lcd1:K", "green", [ "v0" ] ],
+    [ "pot1:GND", "r2:1", "black", [ "v0" ] ],
+    [ "lcd1:D7", "esp:D2", "green", [ "v0" ] ],
+    [ "lcd1:D6", "esp:D4", "green", [ "v0" ] ],
+    [ "lcd1:D5", "esp:D5", "green", [ "v0" ] ],
+    [ "lcd1:D4", "esp:D18", "green", [ "v0" ] ],
+    [ "lcd1:RW", "lcd1:VSS", "green", [ "v27.92", "h-41.54" ] ],
+    [ "lcd1:E", "esp:D19", "green", [ "v0" ] ],
+    [ "lcd1:RS", "esp:D21", "green", [ "v0" ] ],
+    [ "lcd1:V0", "pot1:SIG", "green", [ "v142.27", "h-223.58" ] ],
+    [ "lcd1:VDD", "pot1:VCC", "green", [ "v134.05", "h-197.88" ] ],
+    [ "lcd1:VSS", "pot1:GND", "green", [ "v90.7", "h-259.38" ] ],
+    [ "led1:A", "esp:D25", "green", [ "v0" ] ],
+    [ "r3:1", "led1:C", "green", [ "h20", "v-85.54" ] ],
+    [ "r3:2", "esp:GND.2", "green", [ "h10.11", "v163.26" ] ]
+  ],
+  "dependencies": {}
+}
+
+
