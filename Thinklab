@@ -1,75 +1,65 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include "DHT.h"
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
 
-// WiFi credentials (Wokwi uses "Wokwi-GUEST" with no password for internet simulation)
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
 
-// ThingSpeak API settings
-String apiKey = "VLEIWMHH82MLCBD"; // Your Write API Key
+String apiKey = "VLEIWMHH82MLCBD";
 const char* server = "api.thingspeak.com";
 
-// DHT Sensor configuration
 #define DHTPIN 4        
-#define DHTTYPE DHT22    // Wokwi standard DHT is usually DHT22
+#define DHTTYPE DHT22    
 DHT dht(DHTPIN, DHTTYPE);
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 void setup() {
   Serial.begin(115200);
   dht.begin();
-
-  Serial.print("Connecting to WiFi");
+  
+  lcd.init();
+  lcd.backlight();
+  
   WiFi.begin(ssid, password);
- 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");      
   }
- 
-  Serial.println("\nWiFi Connected!");
 }
 
 void loop() {
-  // Wait 15 seconds between updates (ThingSpeak free tier limit)
   delay(15000);
 
-  // Read temperature as Celsius
   float t = dht.readTemperature();
+  float h = dht.readHumidity();
 
-  // Check if the reading failed
-  if (isnan(t)) {
-    Serial.println("Failed to read from DHT sensor!");
+  if (isnan(t) || isnan(h)) {
+    lcd.clear();
+    lcd.print("Sensor Error");
     return;
   }
 
-  Serial.print("Temperature: ");
-  Serial.print(t);
-  Serial.println(" *C");
+  // Update LCD with both values
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("T: ");
+  lcd.print(t);
+  lcd.print("C");
+  
+  lcd.setCursor(0, 1);
+  lcd.print("H: ");
+  lcd.print(h);
+  lcd.print("%");
 
-  // --- Send Data to ThingSpeak ---
+  // Send Data to ThingSpeak (Field 1: Temp, Field 2: Humidity)
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
+    String url = "http://" + String(server) + "/update?api_key=" + apiKey + "&field1=" + String(t) + "&field2=" + String(h);
    
-    // Construct the URL for a single field (Field 1)
-    String url = "http://" + String(server) + "/update?api_key=" + apiKey + "&field1=" + String(t);
-   
-    // Start the HTTP request
     http.begin(url);
-    int httpResponseCode = http.GET();
-   
-    if (httpResponseCode > 0) {
-      Serial.print("ThingSpeak Response code: ");
-      Serial.println(httpResponseCode); // 200 means success
-    } else {
-      Serial.print("Error code: ");
-      Serial.println(httpResponseCode);
-    }
-   
-    // Free resources
+    http.GET();
     http.end();
-  } else {
-    Serial.println("WiFi Disconnected");
   }
 }
-
