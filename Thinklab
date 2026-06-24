@@ -1,0 +1,75 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include "DHT.h"
+
+// WiFi credentials (Wokwi uses "Wokwi-GUEST" with no password for internet simulation)
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+
+// ThingSpeak API settings
+String apiKey = "VLEIWMHH82MLCBD"; // Your Write API Key
+const char* server = "api.thingspeak.com";
+
+// DHT Sensor configuration
+#define DHTPIN 4        
+#define DHTTYPE DHT22    // Wokwi standard DHT is usually DHT22
+DHT dht(DHTPIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(115200);
+  dht.begin();
+
+  Serial.print("Connecting to WiFi");
+  WiFi.begin(ssid, password);
+ 
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");      
+  }
+ 
+  Serial.println("\nWiFi Connected!");
+}
+
+void loop() {
+  // Wait 15 seconds between updates (ThingSpeak free tier limit)
+  delay(15000);
+
+  // Read temperature as Celsius
+  float t = dht.readTemperature();
+
+  // Check if the reading failed
+  if (isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  Serial.print("Temperature: ");
+  Serial.print(t);
+  Serial.println(" *C");
+
+  // --- Send Data to ThingSpeak ---
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+   
+    // Construct the URL for a single field (Field 1)
+    String url = "http://" + String(server) + "/update?api_key=" + apiKey + "&field1=" + String(t);
+   
+    // Start the HTTP request
+    http.begin(url);
+    int httpResponseCode = http.GET();
+   
+    if (httpResponseCode > 0) {
+      Serial.print("ThingSpeak Response code: ");
+      Serial.println(httpResponseCode); // 200 means success
+    } else {
+      Serial.print("Error code: ");
+      Serial.println(httpResponseCode);
+    }
+   
+    // Free resources
+    http.end();
+  } else {
+    Serial.println("WiFi Disconnected");
+  }
+}
+
